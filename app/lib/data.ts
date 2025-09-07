@@ -33,22 +33,28 @@ export async function fetchRevenue() {
 export async function fetchLatestInvoices() {
   try {
     const data = await sql<LatestInvoiceRaw[]>`
-      SELECT invoices.amount, customers.name, customers.image_url, customers.email, invoices.id
+      SELECT DISTINCT ON (customers.id)
+        invoices.id,
+        invoices.amount,
+        customers.name,
+        customers.image_url,
+        customers.email
       FROM invoices
       JOIN customers ON invoices.customer_id = customers.id
-      ORDER BY invoices.date DESC
-      LIMIT 5`;
+      ORDER BY customers.id, invoices.date DESC
+      LIMIT 5
+    `;
 
-    const latestInvoices = data.map((invoice) => ({
+    return data.map((invoice) => ({
       ...invoice,
       amount: formatCurrency(invoice.amount),
     }));
-    return latestInvoices;
   } catch (error) {
     console.error('Database Error:', error);
     throw new Error('Failed to fetch the latest invoices.');
   }
 }
+
 
 export async function fetchCardData() {
   try {
@@ -94,7 +100,7 @@ export async function fetchFilteredInvoices(
 
   try {
     const invoices = await sql<InvoicesTable[]>`
-      SELECT
+      SELECT DISTINCT ON (customers.id)
         invoices.id,
         invoices.amount,
         invoices.date,
@@ -110,7 +116,7 @@ export async function fetchFilteredInvoices(
         invoices.amount::text ILIKE ${`%${query}%`} OR
         invoices.date::text ILIKE ${`%${query}%`} OR
         invoices.status ILIKE ${`%${query}%`}
-      ORDER BY invoices.date DESC
+      ORDER BY customers.id, invoices.date DESC
       LIMIT ${ITEMS_PER_PAGE} OFFSET ${offset}
     `;
 
